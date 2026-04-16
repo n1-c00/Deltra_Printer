@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delta Flow Benchmark Generator</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.4;
+    }
+    .wrap {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1, h2 { margin: 0 0 12px; }
+    p { margin: 0 0 12px; color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: 520px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+    .section {
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+    .fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field.full { grid-column: 1 / -1; }
+    label { font-size: 13px; color: var(--muted); }
+    .label-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .help {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: help;
+      position: relative;
+      user-select: none;
+    }
+    .tooltip {
+      display: none;
+      position: absolute;
+      top: 22px;
+      left: 0;
+      width: 280px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #020617;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 400;
+      z-index: 50;
+      white-space: normal;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    }
+    .help:hover .tooltip,
+    .help:focus .tooltip { display: block; }
+    input, textarea, button, select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+    }
+    .output { min-height: 380px; }
+    .btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    button { cursor: pointer; font-weight: 600; }
+    button.primary { background: var(--accent); color: #082f49; border-color: transparent; }
+    button.secondary { background: #334155; }
+    .status {
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      font-size: 14px;
+    }
+    .ok { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.35); }
+    .warn { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35); }
+    .err { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.35); }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 12px 0 16px;
+    }
+    .stat {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .stat .k { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+    .stat .v { font-size: 22px; font-weight: 700; }
+    .note { font-size: 13px; color: var(--muted); }
+    canvas {
+      width: 100%;
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: block;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      color: #bae6fd;
+    }
+    @media (max-width: 1180px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Delta Flow Benchmark Generator</h1>
+    <p>
+      Delta-Variante für runde Betten mit Prime Line, Blob mit Z-Anstieg, EXCLUDE_OBJECT und frei eingebbarem Start- und End-Gcode.
+    </p>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="section">
+          <h2>Drucker und Geometrie</h2>
+          <div class="fields">
+            <div class="field"><label for="bedDiameter"></label><input id="bedDiameter" type="number" step="0.1"></div>
+            <div class="field"><label for="safetyMargin"></label><input id="safetyMargin" type="number" step="0.1"></div>
+            <div class="field"><label for="centerX"></label><input id="centerX" type="number" step="0.1"></div>
+            <div class="field"><label for="centerY"></label><input id="centerY" type="number" step="0.1"></div>
+            <div class="field"><label for="cellWidth"></label><input id="cellWidth" type="number" step="0.1"></div>
+            <div class="field"><label for="cellHeight"></label><input id="cellHeight" type="number" step="0.1"></div>
+            <div class="field"><label for="gapX"></label><input id="gapX" type="number" step="0.1"></div>
+            <div class="field"><label for="gapY"></label><input id="gapY" type="number" step="0.1"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Material und Prozess</h2>
+          <div class="fields">
+            <div class="field"><label for="lineWidth"></label><input id="lineWidth" type="number" step="0.01"></div>
+            <div class="field"><label for="layerHeight"></label><input id="layerHeight" type="number" step="0.01"></div>
+            <div class="field"><label for="filamentDiameter"></label><input id="filamentDiameter" type="number" step="0.01"></div>
+            <div class="field"><label for="layerZ"></label><input id="layerZ" type="number" step="0.01"></div>
+            <div class="field"><label for="travelSpeed"></label><input id="travelSpeed" type="number" step="1"></div>
+            <div class="field"><label for="tempChangeMode"></label>
+              <select id="tempChangeMode">
+                <option value="wait">Mit Warten (M109)</option>
+                <option value="set">Ohne Warten (M104)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Benchmark-Werte</h2>
+          <div class="fields">
+            <div class="field full"><label for="temperatures"></label><input id="temperatures" type="text"></div>
+            <div class="field"><label for="flowStart"></label><input id="flowStart" type="number" step="0.1"></div>
+            <div class="field"><label for="flowEnd"></label><input id="flowEnd" type="number" step="0.1"></div>
+            <div class="field"><label for="flowStep"></label><input id="flowStep" type="number" step="0.1"></div>
+          </div>
+          <p class="note" style="margin-top:10px;">Die Benchmark-Geschwindigkeit wird mit <code>v = Q / (Linienbreite · Schichthöhe)</code> berechnet.</p>
+        </div>
+
+        <div class="section">
+          <h2>Prime und Blob</h2>
+          <div class="fields">
+            <div class="field"><label for="primeLineLength"></label><input id="primeLineLength" type="number" step="0.1"></div>
+            <div class="field"><label for="primeAmount"></label><input id="primeAmount" type="number" step="0.1"></div>
+            <div class="field"><label for="primeSpeed"></label><input id="primeSpeed" type="number" step="0.1"></div>
+            <div class="field"><label for="primeBlobGap"></label><input id="primeBlobGap" type="number" step="0.1"></div>
+            <div class="field"><label for="blobDiameter"></label><input id="blobDiameter" type="number" step="0.1"></div>
+            <div class="field"><label for="blobHeight"></label><input id="blobHeight" type="number" step="0.1"></div>
+            <div class="field"><label for="blobExtrusionAmount"></label><input id="blobExtrusionAmount" type="number" step="0.1"></div>
+            <div class="field"><label for="retractionDistance"></label><input id="retractionDistance" type="number" step="0.1"></div>
+            <div class="field"><label for="retractionSpeed"></label><input id="retractionSpeed" type="number" step="0.1"></div>
+            <div class="field"><label for="dwellTimeMs"></label><input id="dwellTimeMs" type="number" step="1" min="0"></div>
+          </div>
+        </div>
+
+        <div class="section small">
+          <h2>Start-Gcode</h2>
+          <div class="fields">
+            <div class="field full">
+              <label for="startGcode"></label>
+              <textarea id="startGcode"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="section small">
+          <h2>End-Gcode</h2>
+          <div class="fields">
+            <div class="field full">
+              <label for="endGcode"></label>
+              <textarea id="endGcode"></textarea>
+            </div>
+          </div>
+          <div class="btns">
+            <button class="primary" id="generateBtn">G-Code erzeugen</button>
+            <button id="copyBtn">In Zwischenablage kopieren</button>
+            <button id="downloadBtn">Als .gcode herunterladen</button>
+            <button class="secondary" id="resetBtn">Reset to default</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div id="status" class="status warn">Noch nicht erzeugt.</div>
+
+        <div class="stats">
+          <div class="stat"><div class="k">Musterbreite</div><div class="v" id="statWidth">-</div></div>
+          <div class="stat"><div class="k">Musterhöhe</div><div class="v" id="statHeight">-</div></div>
+          <div class="stat"><div class="k">max. Quadrat</div><div class="v" id="statSquare">-</div></div>
+          <div class="stat"><div class="k">Mindestfeld</div><div class="v" id="statCell">-</div></div>
+        </div>
+
+        <h2>Vorschau</h2>
+        <p>Hellblau zeigt das Benchmark-Muster. Gelb ist die Prime Line, rosa der Blob-Bereich. Der grüne Kreis ist die nutzbare Delta-Fläche.</p>
+        <canvas id="preview" width="980" height="760"></canvas>
+
+        <h2 style="margin-top:18px;">Generierter G-Code</h2>
+        <textarea id="output" class="output" spellcheck="false"></textarea>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function() {
+  const $ = (id) => document.getElementById(id);
+
+  const defaults = {
+    bedDiameter: 420,
+    safetyMargin: 8,
+    centerX: 0,
+    centerY: 0,
+    cellWidth: 60,
+    cellHeight: 20,
+    gapX: 6,
+    gapY: 6,
+    lineWidth: 0.90,
+    layerHeight: 0.40,
+    filamentDiameter: 1.75,
+    layerZ: 0.40,
+    travelSpeed: 300,
+    tempChangeMode: 'wait',
+    temperatures: '210,220,230,240,250',
+    flowStart: 60,
+    flowEnd: 90,
+    flowStep: 5,
+    primeLineLength: 25,
+    primeAmount: 20,
+    primeSpeed: 5,
+    primeBlobGap: 15,
+    blobDiameter: 10,
+    blobHeight: 10,
+    blobExtrusionAmount: 200,
+    retractionDistance: 0.6,
+    retractionSpeed: 35,
+    dwellTimeMs: 20000,
+    startGcode: 'PRINT_START',
+    endGcode: 'PRINT_END'
+  };
+
+  const fieldIds = [
+    'bedDiameter','safetyMargin','centerX','centerY','cellWidth','cellHeight','gapX','gapY',
+    'lineWidth','layerHeight','filamentDiameter','layerZ','travelSpeed','tempChangeMode','temperatures',
+    'flowStart','flowEnd','flowStep','primeLineLength','primeAmount','primeSpeed','primeBlobGap',
+    'blobDiameter','blobHeight','blobExtrusionAmount','retractionDistance','retractionSpeed','dwellTimeMs',
+    'startGcode','endGcode'
+  ];
+
+  function labelWithHelp(text, help) {
+    return '<span class="label-row">' + text + '<span class="help" tabindex="0">?<span class="tooltip">' + help + '</span></span></span>';
+  }
+
+  function applyLabels() {
+    $('bedDiameter').previousElementSibling.innerHTML = labelWithHelp('Bett-Durchmesser [mm]', 'Gesamter physischer Durchmesser des Delta-Betts. Zusammen mit dem Sicherheitsabstand ergibt sich der nutzbare Radius.');
+    $('safetyMargin').previousElementSibling.innerHTML = labelWithHelp('Sicherheitsabstand zum Rand [mm]', 'Abstand zwischen Benchmark-Muster und Bett-Rand. So bleibt das Muster sicher innerhalb der nutzbaren Kreisfläche.');
+    $('centerX').previousElementSibling.innerHTML = labelWithHelp('Mittelpunkt Muster X [mm]', 'X-Position des gesamten Musters relativ zu (0,0). Bei mittiger Anordnung bleibt der Wert 0.');
+    $('centerY').previousElementSibling.innerHTML = labelWithHelp('Mittelpunkt Muster Y [mm]', 'Y-Position des gesamten Musters relativ zu (0,0). Bei mittiger Anordnung bleibt der Wert 0.');
+    $('cellWidth').previousElementSibling.innerHTML = labelWithHelp('Testfeldbreite [mm]', 'Breite eines einzelnen Testfelds. Sie muss größer sein als Prime Line Länge + Abstand Prime→Blob + Blob-Durchmesser.');
+    $('cellHeight').previousElementSibling.innerHTML = labelWithHelp('Testfeldhöhe [mm]', 'Höhe eines einzelnen Testfelds. Sie muss mindestens den Blob-Durchmesser aufnehmen können.');
+    $('gapX').previousElementSibling.innerHTML = labelWithHelp('Abstand Spalten [mm]', 'Freier Abstand zwischen zwei Temperatur-Spalten.');
+    $('gapY').previousElementSibling.innerHTML = labelWithHelp('Abstand Zeilen [mm]', 'Freier Abstand zwischen zwei Volumenstrom-Zeilen.');
+    $('lineWidth').previousElementSibling.innerHTML = labelWithHelp('Linienbreite [mm]', 'Extrusionsbreite für die Volumenstrom-Berechnung. Für eine 0,8-mm-Düse ist 0,90 mm ein sinnvoller Startwert.');
+    $('layerHeight').previousElementSibling.innerHTML = labelWithHelp('Schichthöhe [mm]', 'Schichthöhe für die Querschnittsberechnung des Volumenstroms.');
+    $('filamentDiameter').previousElementSibling.innerHTML = labelWithHelp('Filament-Durchmesser [mm]', 'Wird zur Berechnung der Extrusionsmenge E verwendet. Standard ist 1,75 mm.');
+    $('layerZ').previousElementSibling.innerHTML = labelWithHelp('Druckhöhe Z [mm]', 'Z-Höhe, auf der die Prime Line beginnt.');
+    $('travelSpeed').previousElementSibling.innerHTML = labelWithHelp('Travel-Speed [mm/s]', 'Geschwindigkeit für Verfahrwege ohne Extrusion.');
+    $('tempChangeMode').previousElementSibling.innerHTML = labelWithHelp('Temperaturwechsel', 'Mit M109 wird vor jeder Temperatur-Spalte gewartet. Mit M104 wird nur gesetzt.');
+    $('temperatures').previousElementSibling.innerHTML = labelWithHelp('Temperaturen [°C], komma-getrennt', 'Jede Temperatur erzeugt eine eigene Spalte im Benchmark-Muster.');
+    $('flowStart').previousElementSibling.innerHTML = labelWithHelp('Volumenstrom Start [mm³/s]', 'Erster getesteter Volumenstrom. Standardmäßig 60 mm³/s.');
+    $('flowEnd').previousElementSibling.innerHTML = labelWithHelp('Volumenstrom Ende [mm³/s]', 'Letzter getesteter Volumenstrom. Standardmäßig 90 mm³/s.');
+    $('flowStep').previousElementSibling.innerHTML = labelWithHelp('Volumenstrom Schritt [mm³/s]', 'Abstand zwischen zwei Teststufen. Standardmäßig 5 mm³/s.');
+    $('primeLineLength').previousElementSibling.innerHTML = labelWithHelp('Prime Line Länge [mm]', 'Länge der Prime Line innerhalb eines Testfelds.');
+    $('primeAmount').previousElementSibling.innerHTML = labelWithHelp('Prime Amount [mm Filament]', 'Filamentmenge für die Prime Line. Standardmäßig 20 mm wie im flow-calculator-Preset.');
+    $('primeSpeed').previousElementSibling.innerHTML = labelWithHelp('Prime Speed [mm/s]', 'Geschwindigkeit der Prime Line. Standardmäßig 5 mm/s wie im flow-calculator-Preset.');
+    $('primeBlobGap').previousElementSibling.innerHTML = labelWithHelp('Abstand Prime → Blob [mm]', 'Freier Abstand zwischen Ende der Prime Line und der Blob-Position. Entspricht funktional der Wipe Length. Standard: 15 mm.');
+    $('blobDiameter').previousElementSibling.innerHTML = labelWithHelp('Blob-Durchmesser [mm]', 'Verwendeter Durchmesser für Vorschau und Feldprüfung.');
+    $('blobHeight').previousElementSibling.innerHTML = labelWithHelp('Blob-Höhe [mm]', 'Höhe, um die der Druckkopf während der Blob-Extrusion in Z ansteigt. Standardmäßig 10 mm wie im flow-calculator-Preset.');
+    $('blobExtrusionAmount').previousElementSibling.innerHTML = labelWithHelp('Blob-Extrusionsmenge [mm Filament]', 'Filamentmenge für den Blob. Der Blob wird mit gleichzeitigem Z-Anstieg extrudiert. Standardmäßig 200 mm Filament.');
+    $('retractionDistance').previousElementSibling.innerHTML = labelWithHelp('Retract [mm Filament]', 'Rückzug nach der Prime Line vor dem Wechsel zur Blob-Position. Für dein Setup standardmäßig 0,6 mm.');
+    $('retractionSpeed').previousElementSibling.innerHTML = labelWithHelp('Retract-Speed [mm/s]', 'Geschwindigkeit für Retract und Undo-Retract. Standardmäßig 35 mm/s.');
+    $('dwellTimeMs').previousElementSibling.innerHTML = labelWithHelp('Dwell [ms]', 'Kurze Pause vor dem Blob. In Klipper wird G4 mit P in Millisekunden verwendet. 20000 ms entsprechen 20 s.');
+    $('startGcode').previousElementSibling.innerHTML = labelWithHelp('Wird am Anfang 1:1 eingefügt', 'Dieser Text wird unverändert an den Anfang des G-Codes geschrieben. Standard: PRINT_START.');
+    $('endGcode').previousElementSibling.innerHTML = labelWithHelp('Wird am Ende 1:1 eingefügt', 'Dieser Text wird unverändert an das Ende des G-Codes geschrieben. Standard: PRINT_END.');
+  }
+
+  function resetDefaults() {
+    Object.entries(defaults).forEach(function(entry) {
+      $(entry[0]).value = entry[1];
+    });
+    update();
+  }
+
+  function n(id) { return Number($(id).value); }
+
+  function parseTemperatures() {
+    return $('temperatures').value
+      .split(',')
+      .map(function(s) { return Number(s.trim()); })
+      .filter(function(v) { return Number.isFinite(v); });
+  }
+
+  function buildFlows(start, end, step) {
+    const flows = [];
+    if (!(step > 0)) return flows;
+    const dir = end >= start ? 1 : -1;
+    const realStep = Math.abs(step) * dir;
+    let current = start;
+    let i = 0;
+    while ((dir > 0 && current <= end + 1e-9) || (dir < 0 && current >= end - 1e-9)) {
+      flows.push(Number(current.toFixed(4)));
+      current += realStep;
+      i += 1;
+      if (i > 1000) break;
+    }
+    return flows;
+  }
+
+  function fmt(v, d) {
+    const digits = d === undefined ? 3 : d;
+    return Number(v).toFixed(digits).replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1');
+  }
+
+  function pushLine(lines, line) {
+    lines.push(line);
+  }
+
+  function pushMoveXY(lines, x, y, feed, comment) {
+    let line = 'G1 X' + fmt(x, 3) + ' Y' + fmt(y, 3) + ' F' + fmt(feed, 0);
+    if (comment) line += ' ; ' + comment;
+    pushLine(lines, line);
+  }
+
+  function pushExtrudeXY(lines, x, y, e, feed, comment) {
+    let line = 'G1 X' + fmt(x, 3) + ' Y' + fmt(y, 3) + ' E' + fmt(e, 5) + ' F' + fmt(feed, 0);
+    if (comment) line += ' ; ' + comment;
+    pushLine(lines, line);
+  }
+
+  function pushExtrudeE(lines, e, feed, comment) {
+    let line = 'G1 E' + fmt(e, 5) + ' F' + fmt(feed, 0);
+    if (comment) line += ' ; ' + comment;
+    pushLine(lines, line);
+  }
+
+  function pushExtrudeZ(lines, z, e, feed, comment) {
+    let line = 'G1 Z' + fmt(z, 3) + ' E' + fmt(e, 5) + ' F' + fmt(feed, 0);
+    if (comment) line += ' ; ' + comment;
+    pushLine(lines, line);
+  }
+
+  function calc() {
+    const bedDiameter = n('bedDiameter');
+    const safetyMargin = n('safetyMargin');
+    const centerX = n('centerX');
+    const centerY = n('centerY');
+    const cellWidth = n('cellWidth');
+    const cellHeight = n('cellHeight');
+    const gapX = n('gapX');
+    const gapY = n('gapY');
+    const lineWidth = n('lineWidth');
+    const layerHeight = n('layerHeight');
+    const filamentDiameter = n('filamentDiameter');
+    const layerZ = n('layerZ');
+    const travelSpeed = n('travelSpeed');
+    const tempChangeMode = $('tempChangeMode').value;
+    const temperatures = parseTemperatures();
+    const flows = buildFlows(n('flowStart'), n('flowEnd'), n('flowStep'));
+    const primeLineLength = n('primeLineLength');
+    const primeAmount = n('primeAmount');
+    const primeSpeed = n('primeSpeed');
+    const primeBlobGap = n('primeBlobGap');
+    const blobDiameter = n('blobDiameter');
+    const blobHeight = n('blobHeight');
+    const blobExtrusionAmount = n('blobExtrusionAmount');
+    const retractionDistance = n('retractionDistance');
+    const retractionSpeed = n('retractionSpeed');
+    const dwellTimeMs = n('dwellTimeMs');
+
+    const requiredCellWidth = primeLineLength + primeBlobGap + blobDiameter;
+    const requiredCellHeight = Math.max(blobDiameter, lineWidth * 2);
+
+    const usableRadius = bedDiameter / 2 - safetyMargin;
+    const patternWidth = temperatures.length * cellWidth + Math.max(0, temperatures.length - 1) * gapX;
+    const patternHeight = flows.length * cellHeight + Math.max(0, flows.length - 1) * gapY;
+    const halfW = patternWidth / 2;
+    const halfH = patternHeight / 2;
+    const corners = [
+      [centerX - halfW, centerY - halfH],
+      [centerX + halfW, centerY - halfH],
+      [centerX + halfW, centerY + halfH],
+      [centerX - halfW, centerY + halfH]
+    ];
+    const maxCornerRadius = Math.max.apply(null, corners.map(function(corner) { return Math.hypot(corner[0], corner[1]); }));
+    const fits = maxCornerRadius <= usableRadius + 1e-9;
+    const maxSquareSide = bedDiameter > 2 * safetyMargin ? (bedDiameter - 2 * safetyMargin) / Math.sqrt(2) : 0;
+
+    return {
+      bedDiameter: bedDiameter,
+      safetyMargin: safetyMargin,
+      centerX: centerX,
+      centerY: centerY,
+      cellWidth: cellWidth,
+      cellHeight: cellHeight,
+      gapX: gapX,
+      gapY: gapY,
+      lineWidth: lineWidth,
+      layerHeight: layerHeight,
+      filamentDiameter: filamentDiameter,
+      layerZ: layerZ,
+      travelSpeed: travelSpeed,
+      tempChangeMode: tempChangeMode,
+      temperatures: temperatures,
+      flows: flows,
+      primeLineLength: primeLineLength,
+      primeAmount: primeAmount,
+      primeSpeed: primeSpeed,
+      primeBlobGap: primeBlobGap,
+      blobDiameter: blobDiameter,
+      blobHeight: blobHeight,
+      blobExtrusionAmount: blobExtrusionAmount,
+      retractionDistance: retractionDistance,
+      retractionSpeed: retractionSpeed,
+      dwellTimeMs: dwellTimeMs,
+      requiredCellWidth: requiredCellWidth,
+      requiredCellHeight: requiredCellHeight,
+      usableRadius: usableRadius,
+      patternWidth: patternWidth,
+      patternHeight: patternHeight,
+      maxCornerRadius: maxCornerRadius,
+      fits: fits,
+      maxSquareSide: maxSquareSide
+    };
+  }
+
+  function validate(c) {
+    if (!c.temperatures.length) throw new Error('Keine gültigen Temperaturen eingetragen.');
+    if (!c.flows.length) throw new Error('Keine gültigen Volumenstrom-Schritte vorhanden.');
+    if (!(c.usableRadius > 0)) throw new Error('Der nutzbare Radius ist nicht positiv.');
+    [
+      'cellWidth','cellHeight','lineWidth','layerHeight','filamentDiameter','layerZ','travelSpeed',
+      'primeLineLength','primeAmount','primeSpeed','primeBlobGap','blobDiameter','blobHeight',
+      'blobExtrusionAmount','retractionSpeed'
+    ].forEach(function(key) {
+      if (!(c[key] > 0)) throw new Error('Parameter ' + key + ' muss größer als 0 sein.');
+    });
+    if (c.retractionDistance < 0) throw new Error('Retract darf nicht negativ sein.');
+    if (c.dwellTimeMs < 0) throw new Error('Dwell darf nicht negativ sein.');
+    if (c.cellWidth <= c.requiredCellWidth) {
+      throw new Error('Testfeldbreite zu klein. Erforderlich ist > ' + fmt(c.requiredCellWidth, 1) + ' mm.');
+    }
+    if (c.cellHeight <= c.requiredCellHeight) {
+      throw new Error('Testfeldhöhe zu klein. Erforderlich ist > ' + fmt(c.requiredCellHeight, 1) + ' mm.');
+    }
+    if (!c.fits) {
+      throw new Error('Das Muster passt nicht in die nutzbare Delta-Fläche. Eckradius ' + fmt(c.maxCornerRadius, 1) + ' mm > nutzbarer Radius ' + fmt(c.usableRadius, 1) + ' mm.');
+    }
+  }
+
+  function extrusionPerMm(lineWidth, layerHeight, filamentDiameter) {
+    const filamentArea = Math.PI * Math.pow(filamentDiameter / 2, 2);
+    return (lineWidth * layerHeight) / filamentArea;
+  }
+
+  function generateGcode(c) {
+    validate(c);
+
+    const travelFeed = c.travelSpeed * 60;
+    const retractFeed = c.retractionSpeed * 60;
+    const startX = c.centerX - c.patternWidth / 2;
+    const startY = c.centerY - c.patternHeight / 2;
+
+    const lines = [];
+    pushLine(lines, '; Delta Flow Benchmark Generator');
+    pushLine(lines, '; Temperaturen: ' + c.temperatures.join(', '));
+    pushLine(lines, '; Volumenstroeme: ' + c.flows.join(', '));
+    pushLine(lines, '; Dwell vor Blob: ' + fmt(c.dwellTimeMs, 0) + ' ms');
+    pushLine(lines, '; Blob wird mit gleichzeitigem Z-Anstieg extrudiert');
+
+    if ($('startGcode').value.trim()) {
+      pushLine(lines, '');
+      pushLine(lines, '; --- Start G-code ---');
+      pushLine(lines, $('startGcode').value.trim());
+      pushLine(lines, '; --- Ende Start G-code ---');
+    }
+
+    pushLine(lines, '');
+    pushLine(lines, 'G90');
+    pushLine(lines, 'M83');
+    pushLine(lines, 'G21');
+    pushLine(lines, 'EXCLUDE_OBJECT_DEFINE RESET=1');
+    pushLine(lines, 'G1 Z' + fmt(c.layerZ, 3) + ' F' + fmt(travelFeed, 0));
+
+    for (let col = 0; col < c.temperatures.length; col++) {
+      const temp = c.temperatures[col];
+      const cellX = startX + col * (c.cellWidth + c.gapX);
+      pushLine(lines, '');
+      pushLine(lines, '; ===== Temperatur ' + fmt(temp, 0) + ' C =====');
+      pushLine(lines, c.tempChangeMode === 'wait' ? 'M109 S' + fmt(temp, 0) : 'M104 S' + fmt(temp, 0));
+
+      for (let row = 0; row < c.flows.length; row++) {
+        const flow = c.flows[row];
+        const cellY = startY + row * (c.cellHeight + c.gapY);
+        const printSpeed = flow / (c.lineWidth * c.layerHeight);
+        const printFeed = printSpeed * 60;
+        const objectName = 'T' + fmt(temp, 0) + '_Q' + fmt(flow, 2).replace(/[^0-9]+/g, '_');
+
+        const padX = (c.cellWidth - c.requiredCellWidth) / 2;
+        const padY = (c.cellHeight - c.requiredCellHeight) / 2;
+        const primeY = cellY + padY + c.requiredCellHeight / 2;
+        const primeStartX = cellX + padX;
+        const primeEndX = primeStartX + c.primeLineLength;
+        const blobCenterX = primeEndX + c.primeBlobGap + c.blobDiameter / 2;
+        const blobCenterY = primeY;
+        const blobStartZ = c.layerZ;
+        const blobEndZ = c.layerZ + c.blobHeight;
+
+        pushLine(lines, '');
+        pushLine(lines, 'EXCLUDE_OBJECT_DEFINE NAME=' + objectName + ' CENTER=' + fmt(blobCenterX, 3) + ',' + fmt(blobCenterY, 3));
+        pushLine(lines, 'EXCLUDE_OBJECT_START NAME=' + objectName);
+        pushLine(lines, '; --- Temp ' + fmt(temp, 0) + 'C | Flow ' + fmt(flow, 2) + ' mm^3/s | v=' + fmt(printSpeed, 1) + ' mm/s ---');
+        pushMoveXY(lines, primeStartX, primeY, travelFeed, 'Anfahrt Prime Line');
+        pushExtrudeXY(lines, primeEndX, primeY, c.primeAmount, c.primeSpeed * 60, 'Prime Line');
+
+        if (c.retractionDistance > 0) {
+          pushExtrudeE(lines, -c.retractionDistance, retractFeed, 'Retract');
+        }
+
+        pushMoveXY(lines, blobCenterX, blobCenterY, travelFeed, 'Anfahrt Blob');
+        if (c.dwellTimeMs > 0) {
+          pushLine(lines, 'G4 P' + fmt(c.dwellTimeMs, 0) + ' ; Dwell in Millisekunden');
+        }
+        if (c.retractionDistance > 0) {
+          pushExtrudeE(lines, c.retractionDistance, retractFeed, 'Undo Retract');
+        }
+        pushExtrudeZ(lines, blobEndZ, c.blobExtrusionAmount, printFeed, 'Blob mit Z-Anstieg');
+        pushMoveXY(lines, blobCenterX, blobCenterY, travelFeed, 'Position halten');
+        pushLine(lines, 'G1 Z' + fmt(blobStartZ, 3) + ' F' + fmt(travelFeed, 0) + ' ; Zurueck auf Layer-Z');
+        pushLine(lines, 'EXCLUDE_OBJECT_END NAME=' + objectName);
+      }
+    }
+
+    if ($('endGcode').value.trim()) {
+      pushLine(lines, '');
+      pushLine(lines, '; --- End G-code ---');
+      pushLine(lines, $('endGcode').value.trim());
+      pushLine(lines, '; --- Ende End G-code ---');
+    }
+
+    return lines.join('\n');
+  }
+
+  function drawPreview(c) {
+    const canvas = $('preview');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const pad = 40;
+    const maxDim = Math.max(c.bedDiameter, c.patternWidth + Math.abs(c.centerX) * 2 + 40, c.patternHeight + Math.abs(c.centerY) * 2 + 40);
+    const scale = Math.min((canvas.width - 2 * pad) / maxDim, (canvas.height - 2 * pad) / maxDim);
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const mmToPx = function(v) { return v * scale; };
+    const toX = function(x) { return cx + mmToPx(x); };
+    const toY = function(y) { return cy - mmToPx(y); };
+
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, cy);
+    ctx.lineTo(canvas.width, cy);
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(cx, canvas.height);
+    ctx.stroke();
+
+    ctx.strokeStyle = c.fits ? '#22c55e' : '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, mmToPx(c.usableRadius), 0, Math.PI * 2);
+    ctx.stroke();
+
+    const startX = c.centerX - c.patternWidth / 2;
+    const startY = c.centerY - c.patternHeight / 2;
+    ctx.fillStyle = 'rgba(56,189,248,.12)';
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.2;
+    ctx.fillRect(toX(startX), toY(startY), mmToPx(c.patternWidth), -mmToPx(c.patternHeight));
+    ctx.strokeRect(toX(startX), toY(startY), mmToPx(c.patternWidth), -mmToPx(c.patternHeight));
+
+    for (let col = 0; col < c.temperatures.length; col++) {
+      for (let row = 0; row < c.flows.length; row++) {
+        const x = startX + col * (c.cellWidth + c.gapX);
+        const y = startY + row * (c.cellHeight + c.gapY);
+        ctx.strokeStyle = 'rgba(186,230,253,.4)';
+        ctx.strokeRect(toX(x), toY(y), mmToPx(c.cellWidth), -mmToPx(c.cellHeight));
+
+        const padX = (c.cellWidth - c.requiredCellWidth) / 2;
+        const padY = (c.cellHeight - c.requiredCellHeight) / 2;
+        const primeY = y + padY + c.requiredCellHeight / 2;
+        const primeStartX = x + padX;
+        const primeEndX = primeStartX + c.primeLineLength;
+        const blobCenterX = primeEndX + c.primeBlobGap + c.blobDiameter / 2;
+        const blobCenterY = primeY;
+
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(toX(primeStartX), toY(primeY));
+        ctx.lineTo(toX(primeEndX), toY(primeY));
+        ctx.stroke();
+
+        ctx.strokeStyle = '#f472b6';
+        ctx.beginPath();
+        ctx.arc(toX(blobCenterX), toY(blobCenterY), mmToPx(c.blobDiameter / 2), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    ctx.fillStyle = '#e5e7eb';
+    ctx.font = '12px Arial';
+    ctx.fillText('X', canvas.width - 18, cy - 8);
+    ctx.fillText('Y', cx + 8, 14);
+    ctx.fillText('(0,0)', cx + 6, cy - 6);
+  }
+
+  function update() {
+    const status = $('status');
+    try {
+      const c = calc();
+      $('statWidth').textContent = fmt(c.patternWidth, 1) + ' mm';
+      $('statHeight').textContent = fmt(c.patternHeight, 1) + ' mm';
+      $('statSquare').textContent = fmt(c.maxSquareSide, 1) + ' mm';
+      $('statCell').textContent = '>' + fmt(c.requiredCellWidth, 1) + ' × ' + fmt(c.requiredCellHeight, 1);
+      drawPreview(c);
+      $('output').value = generateGcode(c);
+      status.className = 'status ok';
+      status.textContent = 'Muster passt auf das Delta-Bett. Eckradius: ' + fmt(c.maxCornerRadius, 1) + ' mm, nutzbarer Radius: ' + fmt(c.usableRadius, 1) + ' mm. Dwell: ' + fmt(c.dwellTimeMs, 0) + ' ms.';
+    } catch (err) {
+      status.className = 'status err';
+      status.textContent = err.message;
+      $('output').value = '';
+      $('statWidth').textContent = '-';
+      $('statHeight').textContent = '-';
+      $('statSquare').textContent = '-';
+      $('statCell').textContent = '-';
+      const ctx = $('preview').getContext('2d');
+      ctx.clearRect(0, 0, $('preview').width, $('preview').height);
+    }
+  }
+
+  $('generateBtn').addEventListener('click', update);
+  $('copyBtn').addEventListener('click', async function() {
+    if (!$('output').value) return;
+    await navigator.clipboard.writeText($('output').value);
+    const status = $('status');
+    status.className = 'status ok';
+    status.textContent = 'G-Code in die Zwischenablage kopiert.';
+  });
+  $('downloadBtn').addEventListener('click', function() {
+    if (!$('output').value) return;
+    const blob = new Blob([$ ('output').value], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'delta_flow_benchmark.gcode';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  $('resetBtn').addEventListener('click', resetDefaults);
+
+  applyLabels();
+  fieldIds.forEach(function(id) {
+    $(id).addEventListener('input', update);
+    $(id).addEventListener('change', update);
+  });
+  resetDefaults();
+})();
+</script>
+</body>
+</html>
