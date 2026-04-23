@@ -15,18 +15,9 @@ This repository contains all the files necessary to build and maintain a Deltra 
 - **[Electronics/](./Electronics/)** - Electrical schematics and PCB designs
 - **[Klipper/](./Klipper/)** - Klipper firmware configuration files and macros
 
-## Quick Start
-
 ### Prerequisites
-- Familiarity with 3D printer assembly and electronics
-- Knowledge of Klipper firmware configuration
-- Necessary tools for assembly (see BOM)
 
-### Getting Started
-1. Review the [Bill of Materials](./BOM/README.md) for all required components
-2. Download and review the [CAD models](./CAD/) for assembly reference
-3. Review the [Electronics](./Electronics/) documentation
-4. Configure Klipper using the provided [configuration files](./Klipper/)
+- Please note that this Printer runs of off 3-Phase Power. So **extreme caution** needs to be taken when assembling the electronics as a wrong or faulty installation could be life threatening
 
 ## Klipper Configuration
 
@@ -38,9 +29,10 @@ The Klipper folder contains pre-configured settings for the Deltra printer:
 - `print.cfg` - Print-specific settings
 - `autotune_tmc.cfg` - TMC motor tuning
 - Additional macro and speed configuration files
+
 ## Important Notes
 
-⚠️ **Please Note:** This Printer was a diploma-thesis and was a one off build. All files for building this printer are available, but this project won't be actively maintained by us
+⚠️ **Please Note:** This Printer was a diploma-thesis and therefor a one off build. All files for building this printer are available, but this project won't be actively maintained by us
 
 ## Contributing
 
